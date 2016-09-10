@@ -14,6 +14,8 @@ define icinga2::object::timeperiod (
   $templates                     = ['legacy-timeperiod'],
   $timeperiod_display_name       = undef,
   $methods                       = undef,
+  $excludes                      = [],
+  $includes                      = [],
   $ranges                        = {},
   $target_dir                    = '/etc/icinga2/objects/timeperiods',
   $target_file_name              = "${name}.conf",
@@ -31,6 +33,8 @@ define icinga2::object::timeperiod (
     validate_string($methods)
   }
   validate_hash($ranges)
+  validate_array($excludes)
+  validate_array($includes)
   validate_string($target_dir)
   validate_string($target_file_name)
   validate_string($target_file_owner)

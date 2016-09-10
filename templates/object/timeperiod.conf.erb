@@ -18,11 +18,17 @@ object TimePeriod "<%= @object_name %>" {
   <%- if @methods_update -%>
   methods.update = "<%= @methods_update -%>"
   <%- end -%>
+  <%- if @excludes.empty? != true -%>
+  excludes = <%= @excludes %>
+  <%- end -%>
+  <%- if @includes.empty? != true -%>
+  includes = <%= @includes %>
+  <%- end -%>
   <%- if @ranges.empty? != true -%>
   ranges = {
   <%- @ranges.sort_by {|key, value| key}.each do |key, value| -%>
     "<%= key %>" = "<%= value %>"
   <%- end -%>
   }
-  <%- end -%> 
+  <%- end -%>
 }
