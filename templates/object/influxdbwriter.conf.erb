@@ -12,6 +12,10 @@ object InfluxdbWriter "<%= @name -%>" {
   port = <%= @port %>
 
   database = "<%= @database %>"
+
+  enable_send_metadata = true
+  enable_send_thresholds = true
+
   host_template = {
     measurement = "$host.check_command$"
     tags = {
