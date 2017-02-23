@@ -16,6 +16,7 @@ define icinga2::object::timeperiod (
   $methods                       = undef,
   $excludes                      = [],
   $includes                      = [],
+  Boolean $prefer_includes       = true,
   $ranges                        = {},
   $target_dir                    = '/etc/icinga2/objects/timeperiods',
   $target_file_name              = "${name}.conf",

@@ -24,6 +24,9 @@ object TimePeriod "<%= @object_name %>" {
   <%- if @includes.empty? != true -%>
   includes = <%= @includes %>
   <%- end -%>
+  <%- if !@prefer_includes -%>
+  prefer_includes = false
+  <%- end -%>
   <%- if @ranges.empty? != true -%>
   ranges = {
   <%- @ranges.sort_by {|key, value| key}.each do |key, value| -%>
