@@ -31,7 +31,8 @@ define icinga2::object::apply_notification_to_service (
   $target_file_owner       = $::icinga2::config_owner,
   $target_file_group       = $::icinga2::config_group,
   $target_file_mode        = $::icinga2::config_mode,
-  $refresh_icinga2_service = true
+  $refresh_icinga2_service = true,
+  $custom_append           = [],
 ) {
 
   #Do some validation of the class' parameters:
@@ -40,6 +41,7 @@ define icinga2::object::apply_notification_to_service (
   validate_array($templates)
   validate_string($command)
   validate_hash($vars)
+  validate_array($custom_append)
   validate_array($users)
   validate_array($user_groups)
   validate_hash($times)
