@@ -2,7 +2,7 @@
 #
 # This is a defined type for Icinga 2 apply objects that create Compat Logger
 # See the following Icinga 2 doc page for more info:
-# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-compatlogger
+# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-compatlogger
 #
 # === Parameters
 #
@@ -17,9 +17,9 @@ define icinga2::object::compatlogger (
   $target_dir              = '/etc/icinga2/objects/compatloggers',
   $target_file_name        = "${name}.conf",
   $target_file_ensure      = file,
-  $target_file_owner       = 'root',
-  $target_file_group       = 'root',
-  $target_file_mode        = '0644',
+  $target_file_owner       = $::icinga2::config_owner,
+  $target_file_group       = $::icinga2::config_group,
+  $target_file_mode        = $::icinga2::config_mode,
   $refresh_icinga2_service = true
 ) {
 
@@ -48,23 +48,23 @@ define icinga2::object::compatlogger (
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_compatlogger.conf.erb'),
+      content => template('icinga2/object/compatlogger.conf.erb'),
       #...notify the Icinga 2 daemon so it can restart and pick up changes made to this config file...
-      notify  => Service['icinga2'],
+      notify  => Class['::icinga2::service'],
     }
 
   }
-  #...otherwise, use the same file resource but without a notify => parameter: 
+  #...otherwise, use the same file resource but without a notify => parameter:
   else {
-  
+
     file { "${target_dir}/${target_file_name}":
       ensure  => $target_file_ensure,
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_compatlogger.conf.erb'),
+      content => template('icinga2/object/compatlogger.conf.erb'),
     }
-  
+
   }
 
 }

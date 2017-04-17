@@ -2,7 +2,7 @@
 #
 #  This is a defined type for Icinga 2 user objects.
 # See the following Icinga 2 doc page for more info:
-# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-user
+# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-user
 #
 # === Parameters
 #
@@ -10,29 +10,32 @@
 #
 
 define icinga2::object::user (
-  $object_username = $name,
-  $display_name = $name,
-  $email = undef,
-  $pager = undef,
-  $vars = {},
-  $groups = [],
-  $enable_notifications = undef,
-  $period = undef,
-  $types = [],
-  $states = [],
-  $target_dir = '/etc/icinga2/objects',
-  $target_file_name = "${name}.conf",
-  $target_file_ensure = file,
-  $target_file_owner = 'root',
-  $target_file_group = 'root',
-  $target_file_mode = '0644',
+  $object_username         = $name,
+  $is_template             = false,
+  $templates               = [],
+  $display_name            = $name,
+  $email                   = undef,
+  $pager                   = undef,
+  $vars                    = {},
+  $groups                  = [],
+  $enable_notifications    = true,
+  $period                  = undef,
+  $types                   = [],
+  $states                  = [],
+  $target_dir              = '/etc/icinga2/objects/users',
+  $target_file_name        = "${name}.conf",
+  $target_file_ensure      = file,
+  $target_file_owner       = $::icinga2::config_owner,
+  $target_file_group       = $::icinga2::config_group,
+  $target_file_mode        = $::icinga2::config_mode,
   $refresh_icinga2_service = true
 ) {
 
   #Do some validation of the class' parameters:
   validate_string($object_username)
+  validate_bool($is_template)
+  validate_array($templates)
   validate_string($display_name)
-  validate_string($host_name)
   validate_array($groups)
   validate_hash($vars)
   validate_array($types)
@@ -52,23 +55,23 @@ define icinga2::object::user (
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_user.conf.erb'),
+      content => template('icinga2/object/user.conf.erb'),
       #...notify the Icinga 2 daemon so it can restart and pick up changes made to this config file...
-      notify  => Service['icinga2'],
+      notify  => Class['::icinga2::service'],
     }
 
   }
-  #...otherwise, use the same file resource but without a notify => parameter: 
+  #...otherwise, use the same file resource but without a notify => parameter:
   else {
-  
+
     file { "${target_dir}/${target_file_name}":
       ensure  => $target_file_ensure,
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_user.conf.erb'),
+      content => template('icinga2/object/user.conf.erb'),
     }
-  
+
   }
 
 }

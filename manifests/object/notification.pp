@@ -2,7 +2,7 @@
 #
 # This is a defined type for Icinga 2 apply objects that create notification commands
 # See the following Icinga 2 doc page for more info:
-# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-notification
+# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-notification
 #
 # === Parameters
 #
@@ -11,6 +11,8 @@
 
 define icinga2::object::notification (
   $object_notificationname = $name,
+  $is_template             = false,
+  $templates               = [],
   $command                 = undef,
   $host_name               = undef,
   $service_name            = undef,
@@ -25,14 +27,15 @@ define icinga2::object::notification (
   $target_dir              = '/etc/icinga2/objects/notifications',
   $target_file_name        = "${name}.conf",
   $target_file_ensure      = file,
-  $target_file_owner       = 'root',
-  $target_file_group       = 'root',
-  $target_file_mode        = '0644',
+  $target_file_owner       = $::icinga2::config_owner,
+  $target_file_group       = $::icinga2::config_group,
+  $target_file_mode        = $::icinga2::config_mode,
   $refresh_icinga2_service = true
 ) {
 
   #Do some validation of the class' parameters:
   validate_string($object_notificationname)
+  validate_bool($is_template)
   validate_string($command)
   if $host_name {
     validate_string($host_name)
@@ -45,7 +48,7 @@ define icinga2::object::notification (
   validate_array($user_groups)
   validate_hash($times)
   if $interval {
-    validate_re($interval, '^\d$')
+    validate_re($interval, '^\d+m?$')
   }
   if $period {
     validate_string($period)
@@ -75,23 +78,23 @@ define icinga2::object::notification (
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_notification.conf.erb'),
+      content => template('icinga2/object/notification.conf.erb'),
       #...notify the Icinga 2 daemon so it can restart and pick up changes made to this config file...
-      notify  => Service['icinga2'],
+      notify  => Class['::icinga2::service'],
     }
 
   }
-  #...otherwise, use the same file resource but without a notify => parameter: 
+  #...otherwise, use the same file resource but without a notify => parameter:
   else {
-  
+
     file { "${target_dir}/${target_file_name}":
       ensure  => $target_file_ensure,
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_notification.conf.erb'),
+      content => template('icinga2/object/notification.conf.erb'),
     }
-  
+
   }
 
 }

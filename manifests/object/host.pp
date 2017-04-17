@@ -2,7 +2,7 @@
 #
 #  This is a defined type for Icinga 2 host objects.
 # See the following Icinga 2 doc page for more info:
-# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-host
+# http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-host
 #
 # === Parameters
 #
@@ -10,45 +10,50 @@
 #
 
 define icinga2::object::host (
-  $object_hostname = $name,
-  $display_name = $fqdn,
-  $ipv4_address = $ipaddress,
-  $ipv6_address = undef,
-  $template_to_import = 'generic-host',
-  $groups = [],
-  $vars = {},
-  $check_command = undef,
-  $max_check_attempts = undef,
-  $check_period = undef,
-  $check_interval = undef,
-  $retry_interval = undef,
-  $enable_notifications = undef,
-  $enable_active_checks = undef,
-  $enable_passive_checks = undef,
-  $enable_event_handler = undef,
-  $enable_flapping = undef,
-  $enable_perfdata = undef,
-  $event_command = undef,
+  $object_hostname         = $name,
+  $display_name            = $fqdn,
+  $ipv4_address            = $ipaddress,
+  $ipv6_address            = undef,
+  $is_template             = false,
+  $templates               = ['generic-host'],
+  $groups                  = [],
+  $vars                    = {},
+  $check_command           = undef,
+  $max_check_attempts      = undef,
+  $check_period            = undef,
+  $check_interval          = undef,
+  $retry_interval          = undef,
+  $enable_notifications    = true,
+  $enable_active_checks    = undef,
+  $enable_passive_checks   = undef,
+  $enable_event_handler    = undef,
+  $enable_flapping         = undef,
+  $enable_perfdata         = undef,
+  $event_command           = undef,
   #flapping_threshold is defined as a percentage, eg. 10%, 50%, etc.
-  $flapping_threshold = undef,
-  $volatile = undef,
-  $notes = undef,
-  $notes_url = undef,
-  $action_url = undef,
-  $icon_image = undef,
-  $icon_image_alt = undef,
-  $target_dir = '/etc/icinga2/objects',
-  $target_file_name = "${fqdn}.conf",
-  $target_file_ensure = file,
-  $target_file_owner = 'root',
-  $target_file_group = 'root',
-  $target_file_mode = '0644',
-  $refresh_icinga2_service = true
+  $flapping_threshold      = undef,
+  $volatile                = undef,
+  $notes                   = undef,
+  $notes_url               = undef,
+  $action_url              = undef,
+  $icon_image              = undef,
+  $icon_image_alt          = undef,
+  $target_dir              = '/etc/icinga2/objects/hosts',
+  $target_file_name        = "${name}.conf",
+  $target_file_ensure      = file,
+  $target_file_owner       = $::icinga2::config_owner,
+  $target_file_group       = $::icinga2::config_group,
+  $target_file_mode        = $::icinga2::config_mode,
+  $refresh_icinga2_service = true,
+  $zone                    = undef,
+  $command_endpoint        = undef,
+  $custom_prepend          = [],
+  $custom_append           = [],
 ) {
 
-  #Do some validation of the class' parameters:
   validate_string($object_hostname)
-  validate_string($template_to_import)
+  validate_bool($is_template)
+  validate_array($templates)
   validate_string($display_name)
   validate_string($ipv4_address)
   validate_array($groups)
@@ -59,6 +64,10 @@ define icinga2::object::host (
   validate_string($target_file_group)
   validate_string($target_file_mode)
   validate_bool($refresh_icinga2_service)
+  validate_string($zone)
+  validate_string($command_endpoint)
+  validate_array($custom_prepend)
+  validate_array($custom_append)
 
   #If the refresh_icinga2_service parameter is set to true...
   if $refresh_icinga2_service == true {
@@ -68,23 +77,23 @@ define icinga2::object::host (
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_host.conf.erb'),
+      content => template('icinga2/object/host.conf.erb'),
       #...notify the Icinga 2 daemon so it can restart and pick up changes made to this config file...
-      notify  => Service['icinga2'],
+      notify  => Class['::icinga2::service'],
     }
 
   }
-  #...otherwise, use the same file resource but without a notify => parameter: 
+  #...otherwise, use the same file resource but without a notify => parameter:
   else {
-  
+
     file { "${target_dir}/${target_file_name}":
       ensure  => $target_file_ensure,
       owner   => $target_file_owner,
       group   => $target_file_group,
       mode    => $target_file_mode,
-      content => template('icinga2/object_host.conf.erb'),
+      content => template('icinga2/object/host.conf.erb'),
     }
-  
+
   }
 
 }

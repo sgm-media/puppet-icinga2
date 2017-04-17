@@ -1,5 +1,15 @@
-puppet-icinga2
-==========
+Icinga 2 Puppet module
+======================
+
+# Fair warning
+
+The GIT branch `develop` of this module is in a bit of flux at the moment.
+
+Please make sure to check:
+* https://github.com/Icinga/puppet-icinga2/pull/94
+* https://dev.icinga.org/projects/puppet-icinga2/roadmap
+
+TODO: remove for release!
 
 Table of Contents
 -----------------
@@ -10,6 +20,7 @@ Table of Contents
 4. [Usage - How to use the module for various tasks](#usage)
     * [Object type usage](#object_type_usage)
     * [Objects](#objects)
+    * [Hiera - Using hiera to create icinga objects](#hiera)
 5. [Reference - The classes and defined types available in this module](#reference)
 6. [Limitations - OS compatibility, etc.](#limitations)
 7. [Development - Guide for contributing to the module](#development)
@@ -18,7 +29,7 @@ Table of Contents
 [Overview](id:overview)
 --------
 
-This module installs and configures the [Icinga 2 monitoring system](https://www.icinga.org/icinga2/). It can also install and configure [NRPE](http://exchange.nagios.org/directory/Addons/Monitoring-Agents/NRPE--2D-Nagios-Remote-Plugin-Executor/details) on client systems that are being monitored by an Icinga 2 server.
+This module installs and configures the [Icinga 2 monitoring system](https://www.icinga.org/icinga2/).
 
 [Module Description](id:module-description)
 -------------------
@@ -36,7 +47,7 @@ This module requires the [Puppet Labs stdlib module](https://github.com/puppetla
 
 For Ubuntu systems, this module requires the [Puppet Labs apt module](https://github.com/puppetlabs/puppetlabs-apt).
 
-On EL-based systems (CentOS, Red Hat Enterprise Linux, Fedora, etc.), the [EPEL package repository](https://fedoraproject.org/wiki/EPEL) is required. You can also use the [icinga2::nrpe class](#nrpe-usage) to set up NRPE on CentOS 5. It is discouraged to set up Icinga2 Server on this old of a distribution. You are encouraged to use at least CentOS 6 or higher.
+On EL-based systems (CentOS, Red Hat Enterprise Linux, Fedora, etc.), the [EPEL package repository](https://fedoraproject.org/wiki/EPEL) is required. OracleLinux and similar might also need addons and optional (EPEL-7) enabled too. Consider using a module to manage all yum repos on hosts to manage the repos locally.
 
 ####Note for RedHat
 
@@ -45,7 +56,7 @@ If you are using RedHat Satellite server, set
    $manage_repos = false
 </pre>
 
-in `icinga2::server` class and make sure, you have a channel set up with the contents of the icinga2 repository and the needed packages from EPEL. If you leave it at true, the EPEL repository will be used directly.
+in `icinga2` class and make sure, you have a channel set up with the contents of the icinga2 repository and the needed packages from EPEL. If you leave it at true, the EPEL repository will be used directly.
 
 If you would like to use the `icinga2::object` defined types as [exported resources](https://docs.puppetlabs.com/guides/exported_resources.html), you'll need to have your Puppet master set up with PuppetDB. See the Puppet Labs documentation for more info: [Docs: PuppetDB](https://docs.puppetlabs.com/puppetdb/)
 
@@ -121,45 +132,45 @@ icinga2::conf { 'baseservices':
 
 ###Server usage
 
-To install Icinga 2, first set up a MySQL or Postgres database.
+To begin, Icinga 2 requires that a database is available for use.  Either Mysql
+or PostgreSQL will work for this purpose.  This database creation is not
+handled in this module.
 
-Once the database is set up, use the `icinga2::server` class with the `db_` database connection parameters:
+Once the database is available, use the `icinga2` class with the `db_` database
+connection parameters to specify the database information for Icinga 2 to use.
 
-<pre>
-#Install Icinga 2:
-class { 'icinga2::server':
-  server_db_type => 'pgsql',
-  db_host => 'localhost',
-  db_port => '5432',
-  db_name => 'icinga2_data',
-  db_user => 'icinga2',
-  db_password => 'password',
+####Install Icinga 2:
+```puppet
+class { 'icinga2':
+  db_type         => 'pgsql',
+  db_host         => 'localhost',
+  db_port         => '5432',
+  db_name         => 'icinga2_data',
+  db_user         => 'icinga2',
+  db_pass         => $password_goes_here,
+  manage_database => true,
 }
-</pre>
+```
 
-When the `server_db_type` parameter is set, the right IDO database connection packages are automatically installed and the database schema is loaded.
+When the `db_type` parameter is set and `manage_database` is enabled, the
+required IDO database connection packages are automatically installed and the
+database schema is loaded.
 
-**Note:** For production use, you'll probably want to get the database password via a [Hiera lookup](http://docs.puppetlabs.com/hiera/1/puppet.html) so the password isn't sitting in your site manifests in plain text:
+**Note:** You may wish to consider [Hiera
+eYAML](https://github.com/TomPoulton/hiera-eyaml) to encrypt the password value
+for YAML storage.
 
-<pre>
-#Install Icinga 2:
-class { 'icinga2::server':
-  server_db_type => 'pgsql',
-  db_host => 'localhost',
-  db_port => '5432',
-  db_name => 'icinga2_data',
-  db_user => 'icinga2',
-  db_password => hiera('icinga_db_password_key_here'),
-}
-</pre>
+#####Manual Database Connection Object
 
-You'll also need to add an IDO connection object that has the same database settings and credentials as what you entered for your `icinga2::server` class.
-
-You can do this by applying either the `icinga2::object::idomysqlconnection` or `icinga2::object::idopgsqlconnection` class to your Icinga 2 server, depending on which database you're using.
+In some circumstances, it may be desirable to set `manage_database => false`
+and handle the database connection yourself.  In such a case, you can either
+apply the `icinga2::object::idomysqlconnection` or
+`icinga2::object::idopgsqlconnection` class to your Icinga 2 server, depending
+on the chosen database.
 
 An example `icinga2::object::idopgsqlconnection` class is below:
 
-<pre>
+```puppet
 icinga2::object::idopgsqlconnection { 'postgres_connection':
    target_dir => '/etc/icinga2/features-enabled',
    target_file_name => 'ido-pgsql.conf',
@@ -168,50 +179,32 @@ icinga2::object::idopgsqlconnection { 'postgres_connection':
    user             => 'icinga2',
    password         => 'password',
    database         => 'icinga2_data',
-   categories => ['DbCatConfig', 'DbCatState', 'DbCatAcknowledgement', 'DbCatComment', 'DbCatDowntime', 'DbCatEventHandler' ],
 }
-</pre>
+```
 
-In a future version, the module will automatically create the IDO connection objects.
+#####Using the Debmon Repository on Debian Systems
 
-**Using the Debmon repository on Debian systems**
-
-If you would like to use the [Debmon repository](http://debmon.org/packages) for Debian 7 systems, set `use_debmon_repo` to true when you call the `icinga2::server` class:
+If you would like to use the [Debmon repository](http://debmon.org/packages) for Debian 7 systems, set `use_debmon_repo` to true when you call the `icinga2` class:
 
 <pre>
-class { 'icinga2::server':
-  server_db_type => 'pgsql',
+class { 'icinga2':
+  db_type => 'pgsql',
   # default to false
   use_debmon_repo => true,
   db_host => 'localhost'
   db_port => '5432'
   db_name => 'icinga2_data'
   db_user => 'icinga2'
-  db_password => 'password',
+  db_pass => 'password',
 }
 </pre>
-
-**NRPE and Nagios plugin packages**
-
-If you will be installing NRPE or the Nagios plugins packages with the `icinga2::nrpe` class on a node that also has the `icinga2::server` class applied, be sure to set the `$server_install_nagios_plugins` parameter in your call to `icinga2::server` to `false`:
-
-<pre>
-#Install Icinga 2:
-class { 'icinga2::server':
-  ...
-  server_install_nagios_plugins => false,
-  ...
- }
-</pre>
-
-This will stop the `icinga2::server` class from trying to install the plugins packages and will prevent a duplicate resource error, since the `icinga2::nrpe` class will already be installing the plugin packages.
 
 **`mail` binaries**
 
 If you would like to install packages to make a `mail` command binary available so that Icinga 2 can send out email notifications, set the `install_mail_utils_package` parameter to **true**:
 
 <pre>
-  class { 'icinga2::server':
+  class { 'icinga2':
     ...
     install_mail_utils_package => true,
     ...
@@ -220,67 +213,67 @@ If you would like to install packages to make a `mail` command binary available 
 
 **Enabling and disabling Icinga 2 features**
 
-To manage the features that are enabled or disabled on an Icinga 2 server, you can specify them with the `server_enabled_features` and `server_disabled_features` parameters.
-
-The parameters should be given as arrays of single-quoted strings.  
-
-**Note:** Even if you're only specifying one feature, you will still need to specify it as an array.
-
-**Note:** If a feature is listed in both the `server_enabled_features` and `server_disabled_features` arrays, the feature will be **disabled**.
+To manage the features that are enabled or disabled on an Icinga 2 server, you can specify `default_features` to `true` or `false` to enable or disable the features `checker`, `mainlog` and `notification`.
 
 ````
-class { 'icinga2::server':
+class { 'icinga2':
   ...
-  server_enabled_features  => ['checker','notification'],
-  server_disabled_features => ['graphite','livestatus'],
+  default_features  => true,
 }
 ````
 
-###NRPE usage
-
-To install NRPE and allow the local machine and Icinga 2 servers (or Icinga 1 or plain old Nagios servers) with various IP addresess to connect:
-
-<pre>
-class { 'icinga2::nrpe':
-  nrpe_allowed_hosts => ['10.0.1.79', '10.0.1.80', '10.0.1.85', '127.0.0.1'],
-}
-</pre>
-
-By default the NRPE daemon will not allow clients to specify arguments to the commands that are executed.  To enable NRPE to allow client argument processing you can call the icinga2::nrpe class with the **allow_command_argument_processing** parameter.
-
-Valid parameter values are: 0=do not allow arguments, 1=allow command arguments
-
-**WARNING! - ENABLING THIS OPTION IS A SECURITY RISK!**
+To enable features selectively you need to configure them seperately.
 
 ````
-class { 'icinga2::nrpe':
-  allow_command_argument_processing => 1,
+class { 'icinga2::feature::command':
+  command_path => '/var/run/icinga2/cmd/icinga2.cmd',
 }
 ````
 
-If you'd like to purge NRPE config files that are not managed by Puppet you can set $nrpe_purge_unmanaged to true.
+````
+class { 'icinga2::feature::notification': }
+````
+
+**Switch from restart to reload Icinga2 service**
+
+The benefits to reload the service can be found in this [chapter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/migration#differences-1x-2-real-reload).
+
+Because the Puppet [Resource Service](https://docs.puppetlabs.com/references/latest/type.html#service) doesn't support a reload, you can override the restart command. Every time the service should be restart, we execute a reload.
+
+````
+class { 'icinga2':
+  ...
+  restart_cmd  => 'service icinga2 reload',
+  ...
+}
+````
+
+You can also use Hiera
+
+````
+icinga2::restart_cmd: 'service icinga2 reload'
+````
+
+You should validate the reload command for your operatingsystem.
+
+### PKI
+
+To use the external CA of puppet add `::icinga2::pki::puppet` to your setup.
+
+Example usage:
 
 ```
-class { 'icinga2::nrpe':
-  nrpe_purge_unmanaged => true,
+class { '::icinga2':
+  ...
 }
+
+contain ::icinga2::pki::puppet
 ```
 
-**Note:** If you would like to install NRPE on a node that also has the `icinga2::server` class applied, be sure to set the `$server_install_nagios_plugins` parameter in your call to `icinga2::server` to `false`:
-
-<pre>
-#Install Icinga 2:
-class { 'icinga2::server':
-  server_db_type => 'pgsql',
-  server_install_nagios_plugins => false,
- }
-</pre>
-
-This will stop the `icinga2::server` class from trying to install the plugins pacakges, since the `icinga2::nrpe` class will already be installing them and will prevent a resulting duplicate resource error.
 
 ### Check Plugins
 
-Agents installed on nodes (such as NRPE) that Icinga is performing active checks against often require additional or custom check plugins. In order to deploy these check pluings on a node you can call the checkplugin defined resource.
+Agents installed on nodes that Icinga is performing active checks against often require additional or custom check plugins. In order to deploy these check pluings on a node you can call the checkplugin defined resource.
 
 The checkplugin defined resource can distribute files via both content (templates) and source (files).  By default the checkpluin resource will assume your distribution method is content (template) and that your template resides in the icinga2 module
 
@@ -338,7 +331,7 @@ The default file mode is controlled by the `target_file_mode` parameter. It defa
 
 ####Purging unmanaged object files
 
-The `purge_unmanaged_object_files` parameter of the `icinga2::server` class controls whether object files in `/etc/icinga2/objects` that are not managed by Puppet get purged. It defaults to `false`.
+The `purge_unmanaged_object_files` parameter of the `icinga2` class controls whether object files in `/etc/icinga2/objects` that are not managed by Puppet get purged. It defaults to `false`.
 
 **Note:** This will purge unmanaged subdirectories as well as unmanaged files!
 
@@ -384,7 +377,7 @@ Unlike the built-in Nagios types, the file `ensure` status, owner, group and mod
   },
   target_dir         => '/etc/icinga2/objects/hosts',
   target_file_name   => "${fqdn}.conf"
-  target_file_ensure =>
+  target_file_ensure => 'file',
   target_file_owner  => 'root',
   target_file_group  => 'root',
   target_file_mode   => '0644'
@@ -414,22 +407,59 @@ icinga2::object::apply_dependency { 'usermail_dep_on_icinga2mail':
 }
 </pre>
 
+####[Features](id:features)
+
+TODO: describe init.pp params
+TODO: checker
+
+* [icinga2::feature::mainlog](#icinga2featuremainlog)
+* [icinga2::feature::notification](#icinga2featurenotification)
+
+Please see the [Icinga 2 Documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types) for details on the
+attributes.
+
+#####[`icinga2::feature::mainlog`](id:feature_mainlog)
+
+This feature is enabled by default and defines where to write the main log file of Icinga2.
+
+You can change the location and severity.
+
+``` puppet
+class { 'icinga2::feature::mainlog':
+  severity => 'debug',
+  path     => '/data/icinga2/icinga2.log',
+}
+```
+
+#####[`icinga2::feature::notification`](id:feature_notification)
+
+This feature is enabled by default and enabled notification features in Icinga2.
+
+You can change the enable_ha feature
+
+``` puppet
+class { 'icinga2::feature::mainlog':
+  enable_ha => false,
+}
+```
+
 ####[Objects](id:objects)
 
 Object types:
-
+* [icinga2::object::apiuser](#icinga2objectapiuser)
 * [icinga2::object::apilistener](#icinga2objectapilistener)
-* [icinga2::object::applyservicetohost](#icinga2objectapplyservicetohost)
-* [icinga2::object::applynotificationtohost](#icinga2objectapplynotificationtohost)
-* [icinga2::object::applynotificationtoservice](#icinga2objectapplynotificationtoservice)
+* [icinga2::object::apply_service](#icinga2objectapply_service)
+* [icinga2::object::apply_notification_to_host](#icinga2objectapply_notification_to_host)
+* [icinga2::object::apply_notification_to_service](#icinga2objectapply_notification_to_service)
+* [icinga2::object::apply_scheduleddowntime](#icinga2objectapply_scheduleddowntime)
 * [icinga2::object::checkcommand](#icinga2objectcheckcommand)
 * [icinga2::object::compatlogger](#icinga2objectcompatlogger)
-* [icinga2::object::checkercomponent](#icinga2objectcheckercomponent)
 * [icinga2::object::checkresultreader](#icinga2objectcheckresultreader)
 * [icinga2::object::endpoint](#icinga2objectendpoint)
 * [icinga2::object::eventcommand](#icinga2objecteventcommand)
 * [icinga2::object::externalcommandlistener](#icinga2objectexternalcommandlistener)
-* [icinga2::object::filelogger](#icinga2objectfilelogger)
+* [icinga2::object::gelfwriter](#icinga2objectgelfwriter)
+* [icinga2::object::graphitewriter](#icinga2objectgraphitewriter)
 * [icinga2::object::host](#icinga2objecthost)
 * [icinga2::object::hostgroup](#icinga2objecthostgroup)
 * [icinga2::object::icingastatuswriter](#icinga2objecticingastatuswriter)
@@ -438,8 +468,8 @@ Object types:
 * [icinga2::object::livestatuslistener](#icinga2objectlivestatuslistener)
 * [icinga2::object::notification](#icinga2objectnotification)
 * [icinga2::object::notificationcommand](#icinga2objectnotificationcommand)
-* [icinga2::object::notificationcomponent](#icinga2objectnotificationcomponent)
 * [icinga2::object::perfdatawriter](#icinga2objectperfdatawriter)
+* [icinga2::object::opentsdbwriter](#icinga2objectopentsdbwriter)
 * [icinga2::object::scheduleddowntime](#icinga2objectscheduleddowntime)
 * [icinga2::object::service](#icinga2objectservice)
 * [icinga2::object::servicegroup](#icinga2objectservicegroup)
@@ -448,10 +478,26 @@ Object types:
 * [icinga2::object::timeperiod](#icinga2objecttimeperiod)
 * [icinga2::object::user](#icinga2objectuser)
 * [icinga2::object::usergroup](#icinga2objectusergroup)
+* [icinga2::object::zone](#icinga2objectzone)
+
+####[`icinga2::object::apiuser`](id:icinga2objectapiuser)
+
+This defined type creates **ApiUser** objects that creates users for Icinga 2's API.
+
+<pre>
+#Create an API user object:
+icinga2::object::apiuser { 'myapiuser':
+  password => 'mysecretpassword',
+}
+</pre>
+
+The permissions for a ApiUser are default unlimited, but it can limited with `permissions` parameter.
+
+See the Icinga 2 documention for more info: [http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-apiuser](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-apiuser)
 
 ####[`icinga2::object::apilistener`](id:icinga2objectapilistener)
 
-The `apilistener` defined type can create `ApiLister` objects that set the bind address and port for Icinga 2's API listener, as well as the locations of the machine's Icinga 2 cert, key and Icinga 2 CA key:
+This defined type creates **ApiLister** objects that set the bind address and port for Icinga 2's API listener, as well as the locations of the machine's Icinga 2 cert, key and Icinga 2 CA key:
 
 <pre>
 #Create an API listener object:
@@ -463,15 +509,15 @@ icinga2::object::apilistener { 'master-api':
 
 The `accept_config` and `accept_commands` parameters default to **false**.
 
-See the Icinga 2 documention for more info: [http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-apilistener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-apilistener)
+See the Icinga 2 documention for more info: [http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-apilistener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-apilistener)
 
-####[`icinga2::object::apply_service_to_host`](id:object_apply_service_to_host)
+####[`icinga2::object::apply_service`](id:object_apply_service)
 
-The `apply_service_to_host` defined type can create `apply` objects to apply services to hosts:
+This defined type creates **Apply** objects to apply services to hosts:
 
 <pre>
 #Create an apply that checks the number of zombie processes:
-icinga2::object::apply_service_to_host { 'check_zombie_procs':
+icinga2::object::apply_service { 'check_zombie_procs':
   display_name => 'Zombie procs',
   check_command => 'nrpe',
   vars => {
@@ -483,7 +529,13 @@ icinga2::object::apply_service_to_host { 'check_zombie_procs':
 }
 </pre>
 
-This defined type has the same available parameters that the `icinga2::object::service` defined type does.
+This defined type has the same available parameters that the `icinga2::object::service` defined type does except the apply parameter.
+
+The `apply` allows multiple services with one definition based on host variables. See [http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/monitoring-basics#using-apply-for-custom-attribute-override](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/monitoring-basics#using-apply-for-custom-attribute-override) for more information.
+
+<pre>
+apply => 'for (interface_name => interface_config in host.vars.interfaces)';
+</pre>
 
 The `assign_where` and `ignore_where` parameter values are meant to be provided as strings. Since Icinga 2 requires that string literals be double-quoted, the whole string in your Puppet site manifests will have to be single-quoted (leaving the double quotes intact inside):
 
@@ -497,9 +549,9 @@ If you would like to use Puppet or Facter variables in an `assign_where` or `ign
 assign_where => "\"linux_servers\" in host.${facter_variable}"",
 </pre>
 
-####[`icinga2::object::applynotificationtohost`](id:object_apply_notification_to_host)
+####[`icinga2::object::apply_notification_to_host`](id:object_apply_notification_to_host)
 
-The `apply_notification_to_host` defined type can create `apply` objects to apply notifications to hosts:
+This defined type creates **Apply** objects to apply notifications to hosts:
 
 This defined type has the same available attributes that the `icinga2::object::notification` defined type does. With the addition of assign_where and ignore_where
 
@@ -515,9 +567,9 @@ icinga2::object::apply_notification_to_host { 'pagerduty-host':
 }
 ````
 
-####[`icinga2::object::applynotificationtoservice`](id:object_apply_notification_to_service)
+####[`icinga2::object::apply_notification_to_service`](id:object_apply_notification_to_service)
 
-The `apply_notification_to_service` defined type can create `apply` objects to apply notifications to service:
+This defined type creates **Apply** objects to apply notifications to services:
 
 This defined type has the same available attributes that the `icinga2::object::notification` defined type does. With the addition of assign_where and ignore_where
 
@@ -532,17 +584,38 @@ icinga2::object::apply_notification_to_service { 'pagerduty-service':
 }
 ````
 
+####[`icinga2::object::apply_scheduleddowntime`](id:object_apply_scheduleddowntime)
+
+The `apply_scheduleddowntime` defined type can create `apply` objects to apply downtimes to hosts or services:
+
+<pre>
+icinga2::object::apply_scheduleddowntime { 'apply-downtime-name':
+  apply        => 'Service',
+  templates    => [
+    'generic-downtime-template'
+  ],
+  assign_where => 'service.vars.anoying_check == true',
+  ignore_where => 'host.vars.critical_machine == true',
+  author       => 'icingaadmin',
+  comment      => 'Some comment',
+  fixed        => false,
+  duration     => '30m',
+  ranges       => { 'sunday' => '02:00-03:00' }
+}
+</pre>
+
 ####[`icinga2::object::checkcommand`](id:object_checkcommand)
 
-The `checkcommand` defined type can create `checkcommand` objects.
+This defined type creates **CheckCommand** objects.
 
-Example:
+Example usage:
 
 <pre>
 #Create an HTTP check command:
 icinga2::object::checkcommand { 'check_http':
   command => ['"/check_http"'],
-  arguments     => {'"-H"'             => '"$http_vhost$"',
+  arguments     => {
+    '"-H"'          => '"$http_vhost$"',
     '"-I"'          => '"$http_address$"',
     '"-u"'          => '"$http_uri$"',
     '"-p"'          => '"$http_port$"',
@@ -565,20 +638,21 @@ icinga2::object::checkcommand { 'check_http':
     '"-e"' => '"$http_expect$"'
   },
   vars => {
-    'vars.http_address' => '"$address$"',
-    'vars.http_ssl'     => 'false',
-    'vars.http_sni'     => 'false'
+    http_address => '"$address$"',
+    http_ssl     => false,
+    http_sni     => false
   }
 }
 </pre>
 
 Available parameters are:
 
-* `template_to_import`
 * `command`
 * `cmd_path`
 * `arguments`
 * `env`
+* `sudo`
+* `sudo_cmd`
 * `vars`
 * `timeout`
 * `target_dir`
@@ -589,7 +663,7 @@ Available parameters are:
 
 ####`icinga2::object::compatlogger`
 
-The `compatlogger` defined type can create `compatlogger` objects.
+This defined type creates **CompatLogger** objects.
 
 <pre>
 icinga2::object::compatlogger { 'daily-log':
@@ -599,34 +673,13 @@ icinga2::object::compatlogger { 'daily-log':
 </pre>
 
 Both patameters as optionals. The parameter `rotation_method` can one of `HOURLY`, `DAILY`, `WEEKLY` or `MONTHY`.
-See [CompatLogger](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-compatlogger) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
-
-####[`icinga2::object::checkercomponent`](id:object_checkercomponent)
-
-The `checkercomponent` defined type can create `checkercomponent` objects.
-
-Example:
-
-<pre>
-icinga2::object::checkercomponent {'checker':}
-</pre>
-
-This object support the following parameters:
-* `ensure` - Optional parameter used to remove or create the file, Default value is 'file'. Use 'absent' to remove the file.
-* `object_name` - Optional. Used to define file name. default value is 'checker'
-* `target_dir`  - Optional. Define where the conf fil will be created. Default value is '/etc/icinga2/conf.d'
-* `target_file_name` - Optional. Define the file name. Default value is '${object_name}.conf'. 
-* `target_file_owner` - Optional. File Owner. Default value is 'root'.
-* `target_file_group` - Optional. File Group. Default value is 'root'.
-* `target_file_mode` - Optional. File Mode. Default value is '0644'.
-
-See [CheckerComponent](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-checkercomponent) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for more details about this object.
+See [CompatLogger](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-compatlogger) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::checkresultreader`](id:object_checkresultreader)
 
-The `checkresultreader` defined type can create `checkresultreader` objects.
+This defined type creates **CheckResultReader** objects.
 
-Example:
+Example usage:
 
 <pre>
 icinga2::object::checkresultreader {'reader':
@@ -634,11 +687,11 @@ icinga2::object::checkresultreader {'reader':
 }
 </pre>
 
-See [CheckResultReader](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-checkresultreader) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [CheckResultReader](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-checkresultreader) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::endpoint`](id:object_endpoint)
 
-The `endpoint` defined type can create `endpoint` objects.
+This defined type creates **Endpoint** objects.
 
 <pre>
 icinga2::object::endpoint { 'icinga2b':
@@ -647,11 +700,11 @@ icinga2::object::endpoint { 'icinga2b':
 }
 </pre>
 
-See [EndPoint](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-endpoint) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [EndPoint](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-endpoint) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####`icinga2::object::eventcommand`
 
-The `eventcommand` defined type can create `eventcommand` objects.
+This defined type creates **EventCommand** objects.
 
 <pre>
 #Create the http restart command:
@@ -663,9 +716,9 @@ icinga2::object::eventcommand { 'restart-httpd-event':
 
 This object use the same parameter defined to `checkcommand`.
 
-####`icinga2::object::externalcommandlistener`
+####[`icinga2::object::externalcommandlistener`](id:object_externalcommandlistener)
 
-The `externalcommandlistener` defined type can create `ExternalCommandListener` objects.
+This defined type creates **ExternalCommandListener** objects.
 
 <pre>
 icinga2::object::externalcommandlistener { 'external':
@@ -673,28 +726,47 @@ icinga2::object::externalcommandlistener { 'external':
 }
 </pre>
 
-See [ExternalCommandListener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-externalcommandlistener) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [ExternalCommandListener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-externalcommandlistener) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
-####[`icinga2::object::filelogger`](id:object_filelogger)
+####[`icinga2::object::gelfwriter`](id:object_gelfwriter)
 
-This defined type creates file logger objects.
+This defined type creates an **GelfWriter** objects.
 
-Example:
+Though you can create the file anywhere and with any name via the target_dir and file_name parameters, you should set the target_dir parameter to /etc/icinga2/features-enabled, as that's where Icinga 2 will look for gelfwriter connection objects by default.
 
-<pre>
-icinga2::object::filelogger { 'debug-file':
-  severity => 'debug',
-  path     => '/var/log/icinga2/debug.log',
+Example usage:
+
+````
+icinga2::object::gelfwriter { 'gelf_server':
+  target_dir => '/etc/icinga2/features-enabled',
+  file_name  => 'gelf.conf',
+  host       => '127.0.0.1',
+  port       => 12201,
 }
-</pre>
+````
 
-See [FileLogger](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-filelogger) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+####[`icinga2::object::graphitewriter`](id:object_graphitewriter)
+
+This defined type creates **GraphiteWriter** objects.
+
+Though you can create the file anywhere and with any name via the target_dir and target_file_name parameters, you should set the target_dir parameter to /etc/icinga2/features-enabled, as that's where Icinga 2 will look for graphitewriter connection objects by default.
+
+Example usage:
+
+````
+icinga2::object::graphitewriter { 'graphite_relay':
+  target_dir => '/etc/icinga2/features-enabled',
+  file_name  => 'graphite.conf',
+  host       => '127.0.0.1',
+  port       => 2003,
+}
+````
 
 ####[`icinga2::object::host`](id:object_host)
 
-This defined type creates host objects.
+This defined type creates **Host** objects.
 
-Example:
+Example usage:
 
 <pre>
 @@icinga2::object::host { $::fqdn:
@@ -715,6 +787,16 @@ Notes on specific parameters:
 
 * `groups`: must be specified as a [Puppet array](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#arrays), even if there's only one element
 * `vars`: must be specified as a [Puppet hash](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#hashes), with the Icinga 2 variable as the **key** and the variable's value as the **value**
+* `custom_prepend` and `custom_append`: must be specified as [Puppet arrays](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#arrays), even if there's only one element. This allows to define free form text which will be inserted either in the beginning, or end of the hosts definition, i.e.
+
+<pre>
+    custom_append => [
+      'vars += { disks["disk"] = {} }',
+    ]
+</pre>
+
+will add the literal line 'vars += { disks["disk"] = {} }' to the host definition. This helps overcoming limitations about quoting especially in the `vars` hash.
+This also allows to add comments to the hosts file.
 
 **Note:** The `ipv6_address` parameter is set to **undef** by default. This is because `facter` can return either IPv4 or IPv6 addresses for the `ipaddress_ethX` facts. The default value for the `ipv6_address` parameter is set to **undef** and not `ipaddress_eth0` so that an IPv4 address isn't unintentionally set as the value for `address6` in the rendered host object definition.
 
@@ -730,13 +812,34 @@ If you would like to use an IPv6 address, make sure to set the `ipv6_address` pa
 
 ####[`icinga2::object::hostgroup`](id:object_hostgroup)
 
-Coming soon...
+This defined type creates **Hostgroup** objects.
+
+Example usage:
+
+<pre>
+@@icinga2::object::hostgroup { 'mysql-server':
+  display_name      => 'mysql servers',
+  groups            => ['linux-servers', 'database-severs'],
+  target_dir        => '/etc/icinga2/objects/hostgroups',
+  target_file_name  => "${name}.conf",
+  target_file_owner => 'root',
+  target_file_group => 'root',
+  target_file_mode  => '0644',
+}
+</pre>
+
+Notes on specific parameters:
+
+* `groups`: must be specified as a [Puppet array](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#arrays), even if there's only one element
+
+**Note**: Make sure to avoid duplicate hostgroup definitions.
 
 ####[`icinga2::object::icingastatuswriter`](id:object_icingastatuswriter)
 
-This defined type creates an **IcingaStatusWriter** objects.
+This defined type creates **IcingaStatusWriter** objects.
 
 Example usage:
+
 <pre>
 icinga2::object::icingastatuswriter { 'status':
    status_path       => '/cache/icinga2/status.json',
@@ -744,11 +847,11 @@ icinga2::object::icingastatuswriter { 'status':
 }
 </pre>
 
-See [IcingaStatusWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-icingastatuswriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for more details about the object.
+See [IcingaStatusWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-icingastatuswriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for more details about the object.
 
 ####[`icinga2::object::idomysqlconnection`](id:object_idomysqlconnection)
 
-This defined type creates an **IdoMySqlConnection** objects.
+This defined type creates **IdoMySqlConnection** objects.
 
 Though you can create the file anywhere and with any name via the `target_dir` and `target_file_name` parameters, you should set the `target_dir` parameter to `/etc/icinga2/features-enabled`, as that's where Icinga 2 will look for DB connection objects by default.
 
@@ -763,25 +866,23 @@ icinga2::object::idomysqlconnection { 'mysql_connection':
    user             => 'icinga2',
    password         => 'password',
    database         => 'icinga2_data',
-   categories       => ['DbCatConfig', 'DbCatState', 'DbCatAcknowledgement', 'DbCatComment', 'DbCatDowntime', 'DbCatEventHandler' ],
 }
 </pre>
 
 Some parameters require specific data types to be given:
 
 * `port`: needs to be a [number](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#numbers), not a quoted string
-* `cleanup`: If changed from the default value, needs to be given as a [hash](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#hashes) with the keys being the cleanup item names and the maximum age as a number (not a quoted string); default values are set to the default values shown in the [Cleanup Items section of the IdomysqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idomysqlconnection)
-* `categories`: needs to be given as an [array](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#arrays) with [single-quoted strings](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#single-quoted-strings) as the elements; default values are set to the default values shown in the [Data Categories section of the IdomysqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idomysqlconnection)
+* `cleanup`: If changed from the default value, needs to be given as a [hash](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#hashes) with the keys being the cleanup item names and the maximum age as a number (not a quoted string); default values are set to the default values shown in the [Cleanup Items section of the IdomysqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-idomysqlconnection)
 
 All other parameters are given as [single-quoted strings](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#single-quoted-strings).
 
 This defined type supports all of the parameters that **IdoMySqlConnection** objects have available.
 
-See [IdoMySqlConnection](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idomysqlconnection) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [IdoMySqlConnection](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-idomysqlconnection) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::idopgsqlconnection`](id:object_idopgsqlconnection)
 
-This defined type creates an **IdoPgSqlConnection** objects.
+This defined type creates **IdoPgSqlConnection** objects.
 
 Though you can create the file anywhere and with any name via the `target_dir` and `target_file_name` parameters, you should set the `target_dir` parameter to `/etc/icinga2/features-enabled`, as that's where Icinga 2 will look for DB connection objects by default.
 
@@ -796,22 +897,19 @@ icinga2::object::idopgsqlconnection { 'postgres_connection':
    user             => 'icinga2',
    password         => 'password',
    database         => 'icinga2_data',
-
-   categories => ['DbCatConfig', 'DbCatState', 'DbCatAcknowledgement', 'DbCatComment', 'DbCatDowntime', 'DbCatEventHandler' ],
 }
 </pre>
 
 Some parameters require specific data types to be given:
 
 * `port`: needs to be a [number](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#numbers), not a quoted string
-* `cleanup`: If changed from the default value, needs to be given as a [hash](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#hashes) with the keys being the cleanup item names and the maximum age as a number (not a quoted string); default values are set to the default values shown in the [Cleanup Items section of the IdopgsqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idopgsqlconnection)
-* `categories`: needs to be given as an [array](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#arrays) with [single-quoted strings](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#single-quoted-strings) as the elements; default values are set to the default values shown in the [Data Categories section of the IdopgsqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idopgsqlconnection)
+* `cleanup`: If changed from the default value, needs to be given as a [hash](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#hashes) with the keys being the cleanup item names and the maximum age as a number (not a quoted string); default values are set to the default values shown in the [Cleanup Items section of the IdopgsqlConnection object documentation](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-idopgsqlconnection)
 
 All other parameters are given as [single-quoted strings](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#single-quoted-strings).
 
 This defined type supports all of the parameters that **IdoMySqlConnection** objects have available.
 
-See [IdoPgSqlConnection](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-idopgsqlconnection) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [IdoPgSqlConnection](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-idopgsqlconnection) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::livestatuslistener`](id:object_livestatuslistener)
 
@@ -826,11 +924,11 @@ icinga2::object::livestatuslistener { 'livestatus-unix':
 }
 </pre>
 
-See [LivestatusListener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-livestatuslistener) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [LivestatusListener](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-livestatuslistener) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####`icinga2::object::notification`
 
-The `notification` defined type can create `notification` objects.
+This defined type creates **Notification** objects.
 
 <pre>
 #Defining Create the mail notification command:
@@ -863,19 +961,19 @@ Available parameters are:
 Notes on specific parameters:
 
 * `vars`: needs to be a hash
-* `users`,`user_groups`,`types`,`states`: should be an array, see [Notification](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-notification) for list of valid state and type filters
+* `users`,`user_groups`,`types`,`states`: should be an array, see [Notification](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-notification) for list of valid state and type filters
 * `times`: needs to be a hash with `begin` and `end` attributes
 * `interval`: needs to be a [number](https://docs.puppetlabs.com/puppet/latest/reference/lang_datatypes.html#numbers), not a quoted string
 
 
 ####`icinga2::object::notificationcommand`
 
-The `notificationcommand` defined type can create `notificationcommand` objects.
+This defined type creates **NotificationCommand** objects.
 
 <pre>
 #Create the mail notification command:
 icinga2::object::notificationcommand { 'mail-service-notification':
-  command   => ['"/icinga2/scripts/mail-notification.sh"'],
+  command   => ['/icinga2/scripts/mail-notification.sh'],
   cmd_path  => 'SysconfDir',
   env       => {
     'NOTIFICATIONTYPE'  => '"$notification.type$"',
@@ -896,33 +994,27 @@ icinga2::object::notificationcommand { 'mail-service-notification':
 
 This object use the same parameter defined to `checkcommand`.
 
-####[`icinga2::object::notificationcomponent`](id:object_notificationcomponent) 
- 
-The `notificationcomponent` defined type can create `notificationcomponent` objects. 
- 
-Example: 
- 
-<pre> 
-icinga2::object::notificationcomponent {'notification':} 
-</pre> 
- 
-This object support the following parameters: 
-* `ensure` - Optional parameter used to remove or create the file, Default value is 'file'. Use 'absent' to remove the file. 
-* `object_name` - Optional. Used to define file name. default value is 'checker'
-* `enable_ha` - Optional. Enable the high availability functionality. Only valid in a cluster setup. Default value is true.  
-* `target_dir`  - Optional. Define where the conf fil will be created. Default value is '/etc/icinga2/features-available' 
-* `target_file_name` - Optional. Define the file name. Default value is '${object_name}.conf'.  
-* `target_file_owner` - Optional. File Owner. Default value is 'root'. 
-* `target_file_group` - Optional. File Group. Default value is 'root'. 
-* `target_file_mode` - Optional. File Mode. Default value is '0644'. 
- 
-See [NotificationComponent](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-notificationcomponent) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for more details about this object. 
+####[`icinga2::object::opentsdbwriter`](id:object_opentsdbwriter)
 
-Should be enable/disable using `icinga2::server::features::enable` or `icinga2::server::features::disable`.
+This defined type creates **OpenTsdbWriter** objects.
+
+Though you can create the file anywhere and with any name via the target_dir and file_name parameters, you should set the target_dir parameter to /etc/icinga2/features-enabled, as that's where Icinga 2 will look for opentsdbwriter connection objects by default.
+
+Example usage:
+
+````
+icinga2::object::opentsdbwriter { 'opentsdb_server':
+  target_dir => '/etc/icinga2/features-enabled',
+  file_name  => 'opentsdb.conf',
+  host       => '127.0.0.1',
+  port       => 4242,
+}
+````
 
 ####[`icinga2::object::perfdatawriter`](id:object_perfdatawriter)
 
-This defined type creates a **PerfdataWriter** object
+This defined type creates **PerfdataWriter** objects.
+
 Example usage:
 
 <pre>
@@ -935,11 +1027,13 @@ icinga2::object::perfdatawriter { 'pnp':
 }
 </pre>
 
-See [PerfdataWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-perfdatawriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [PerfdataWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-perfdatawriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::scheduleddowntime`](id:object_scheduleddowntime)
 
-This defined type creates **ScheduledDowntime** objects
+This defined type creates **ScheduledDowntime** objects.
+
+Example usage:
 
 <pre>
 icinga2::object::scheduleddowntime {'some-downtime':
@@ -955,11 +1049,44 @@ icinga2::object::scheduleddowntime {'some-downtime':
 
 ####[`icinga2::object::service`](id:object_service)
 
-Coming soon...
+This defined type creates **Service** objects.
+
+Example usage:
+
+<pre>
+icinga2::object::service { 'example_service':
+  $template_to_import      => 'generic-service',
+  $display_name            => 'Example Service',
+  $host_name               => $::fqdn,
+  $groups                  => ['example-servers', 'linux-servers'],
+  $vars                    => {
+    var1                   => 'somevalue',
+    var2                   => 'someothervalue',
+  },
+  $check_command           => example-check,
+  $max_check_attempts      => 5,
+  $check_interval          => '10m',
+  $retry_interval          => '1m',
+  $enable_notifications    => true,
+  $enable_active_checks    => true,
+  $enable_flapping         => true,
+  $enable_perfdata         => true,
+  $flapping_threshold      => '50%',
+  $target_dir              => '/etc/icinga2/objects/services',
+  $target_file_name        => "${name}.conf",
+  $target_file_ensure      => file,
+  $target_file_owner       => 'root',
+  $target_file_group       => 'root',
+  $target_file_mode        => '0644',
+  $refresh_icinga2_service => true,
+}
+</pre>
+
+See [Service](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-service) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::servicegroup`](id:object_servicegroup)
 
-This defined type creates an **ServiceGroup** objects.
+This defined type creates **ServiceGroup** objects.
 
 Example usage:
 
@@ -970,7 +1097,7 @@ icinga2::object::servicegroup { 'web_services':
 }
 </pre>
 
-See [ServiceGroup](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-servicegroup) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
+See [ServiceGroup](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-servicegroup) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/toc) for a full list of parameters.
 
 ####[`icinga2::object::statusdatawriter`](id:object_statusdatawriter)
 
@@ -986,7 +1113,7 @@ icinga2::object::statusdatawriter { 'status':
 }
 </pre>
 
-See [StatusDataWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-statusdatawriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-sysloglogger) for more info.
+See [StatusDataWriter](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-statusdatawriter) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-sysloglogger) for more info.
 
 ####[`icinga2::object::sysloglogger`](id:object_syslogger)
 
@@ -1003,15 +1130,26 @@ icinga2::object::sysloglogger { 'syslog-warning':
 }
 </pre>
 
-See [SyslogLogger](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-servicegroup) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-sysloglogger) for more info.
+See [SyslogLogger](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-servicegroup) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-sysloglogger) for more info.
 
 ####[`icinga2::object::user`](id:object_user)
 
-Coming soon...
+This defined type creates **User** objects.
+
+<pre>
+icinga2::object::user { 'some_user':
+  display_name => 'Some User',
+  email        => 'some.user@example.org',
+  groups       => ['icingaadmins'],
+  target_dir   => '/etc/icinga2/zones.d/global_zone',
+}
+</pre>
 
 ####[`icinga2::object::usergroup`](id:object_usergroup)
 
-You can use this defined type to create user groups. Example:
+This defined type creates **UserGroup** objects.
+
+Example usage:
 
 <pre>
 #Create an admins user group:
@@ -1023,7 +1161,7 @@ icinga2::object::hostgroup { 'admins':
 
 ####[`icinga2::object::timeperiod`](id:object_timeperiod)
 
-This defined type creates **TimePeriod** objects
+This defined type creates **TimePeriod** objects.
 
 Example usage:
 
@@ -1040,25 +1178,116 @@ icinga2::object::timeperiod { 'bra-office-hrs':
 }
 ````
 
-See [TimePeriod](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-timeperiod) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/configuring-icinga2#objecttype-timeperiod) for more info.
+See [TimePeriod](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-timeperiod) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-timeperiod) for more info.
 
+####[`icinga2::object::zone`](id:object_zone)
 
-####[`icinga2::object::graphitewriter`](id:object_graphitewriter)
+This defined type creates **Zone** objects.
 
-This defined type creates an **GraphiteWriter** object
-
-Though you can create the file anywhere and with any name via the target_dir and target_file_name parameters, you should set the target_dir parameter to /etc/icinga2/features-enabled, as that's where Icinga 2 will look for graphitewriter connection objects by default.
-
-Example Usage:
+Example usage to create an HA master zone:
 
 ````
-icinga2::object::graphitewriter { 'graphite_relay':
-  target_dir       => '/etc/icinga2/features-enabled',
-  target_file_name => 'graphite.conf',
-  graphite_host    => '127.0.0.1',
-  graphite_port    => 2003,
+icinga2::object::zone { 'master':
+    endpoints => { 'icinga-master1' => {}, 'icinga-master2' => {} },
 }
 ````
+
+Example usage to create a satellite zone and specify a parent:
+
+````
+icinga2::object::zone { 'satellite':
+    endpoints => { 'icinga-satellite1' => {}, 'icinga-satellite2' => {} },
+    parent    => 'master'
+}
+````
+
+Example Usage to create a global zone:
+```
+icinga2::object::zone { 'global_zone':
+  global => true,
+}
+```
+
+See [Zone](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-zone) on [docs.icinga.org](http://docs.icinga.org/icinga2/latest/doc/module/icinga2/chapter/object-types#objecttype-zone) for more info.
+
+[`Hiera`](id:hiera)
+---------
+
+You can use hiera to create icinga 2 objects in your server.
+To use this feature one has to include or contain the class `::icinga2::objects`.
+This class will autoload every hash found in Hiera.
+
+Example usage:
+json file
+<pre>
+{
+  ...
+  "icinga2::object::timeperiod": {
+    "bra-office-hrs": {
+      "timeperiod_display_name": "Brazilian WorkTime Hours",
+      "ranges": {
+        "monday": "12:00-21:00",
+        "monday": "12:00-21:00",
+        "monday": "12:00-21:00",
+        "monday": "12:00-21:00",
+        "monday": "12:00-21:00"
+      }
+    },
+    "utc-office-hrs": {
+      "timeperiod_display_name": "UTC WorkTime Hours",
+      "ranges": {
+        "monday": "08:00-17:00",
+        "monday": "08:00-17:00",
+        "monday": "08:00-17:00",
+        "monday": "08:00-17:00",
+        "monday": "08:00-17:00"
+    }
+  }
+  ...
+}
+</pre>
+
+yaml file
+
+<pre>
+icinga2::object::hostgroup:
+  office-a:
+    display_name: 'Office A'
+    assign_where: 'host.vars.location == "office-a"'
+  datacenter-b:
+    display_name: 'Datacenter B'
+    assign_where: 'host.vars.location == "datacenter-b"'
+</pre>
+
+Objects available:
+* `apiuser`
+* `apply_dependency`
+* `apply_notification_to_host`
+* `apply_notification_to_service`
+* `apply_service`
+* `apply_scheduleddowntime`
+* `checkcommand`
+* `dependency`
+* `eventcommand`
+* `graphitewriter`
+* `gelfwriter`
+* `hostgroup`
+* `host`
+* `idomysqlconnection`
+* `idopgsqlconnection`
+* `notificationcommand`
+* `notification`
+* `opentsdbwriter`
+* `perfdatawriter`
+* `scheduleddowntime`
+* `servicegroup`
+* `service`
+* `sysloglogger`
+* `timeperiod`
+* `usergroup`
+* `user`
+
+
 
 [Reference](id:reference)
 ---------

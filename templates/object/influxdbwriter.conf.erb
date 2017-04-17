@@ -1,0 +1,32 @@
+<%= scope.function_template(['icinga2/_header.erb']) -%>
+
+/**
+ * The InfluxdbWriter type writes check result metrics and
+ * performance data to a Influxdb tcp socket.
+ */
+
+library "perfdata"
+
+object InfluxdbWriter "<%= @name -%>" {
+  host = "<%= @host -%>"
+  port = <%= @port %>
+
+  database = "<%= @database %>"
+
+  enable_send_metadata = true
+  enable_send_thresholds = true
+
+  host_template = {
+    measurement = "$host.check_command$"
+    tags = {
+      hostname = "$host.name$"
+    }
+  }
+  service_template = {
+    measurement = "$service.check_command$"
+    tags = {
+      hostname = "$host.name$"
+      service = "$service.name$"
+    }
+  }
+}
