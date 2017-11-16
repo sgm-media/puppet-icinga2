@@ -31,6 +31,7 @@ define icinga2::object::checkcommand (
   $templates                             = ['plugin-check-command'],
   $timeout                               = undef,
   $vars                                  = {},
+  $custom_prepend                        = [],
   #$methods                               = undef, Need to get more details about this attribute
 ) {
 
