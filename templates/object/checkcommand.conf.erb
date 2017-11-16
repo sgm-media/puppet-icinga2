@@ -12,7 +12,12 @@
 
 object CheckCommand "<%= @object_checkcommandname %>" {
   <%- @templates.each do |t| -%>
-  import "<%= t -%>"
+    import "<%= t -%>"
+  <%- end -%>
+  <%- if @custom_prepend && Array(@custom_prepend).size > 0 -%>
+    <%- Array(@custom_prepend).each do |line| -%>
+        <%= line %>
+    <%- end -%>
   <%- end -%>
   <%- if @command -%>
   <%- a_command = [@command].flatten.compact -%>
