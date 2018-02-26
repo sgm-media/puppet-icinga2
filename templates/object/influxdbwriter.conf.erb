@@ -10,8 +10,13 @@ library "perfdata"
 object InfluxdbWriter "<%= @name -%>" {
   host = "<%= @host -%>"
   port = <%= @port %>
+  ssl_enable = <%= @ssl %>
 
   database = "<%= @database %>"
+  <% if @username != '' and @password != '' -%>
+  username = "<%= @username -%>"
+  password = "<%= @password -%>"
+  <% end -%>
 
   enable_send_metadata = true
   enable_send_thresholds = true

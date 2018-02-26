@@ -13,6 +13,9 @@ define icinga2::object::influxdbwriter (
   $host       = '127.0.0.1',
   $port       = 8086,
   $database   = 'icinga2',
+  $username   = '',
+  $password   = '',
+  $ssl        = false,
   # Put the object files this defined type generates in features-available
   # since the Graphite writer feature is one that has to be explicitly enabled.
   $target_dir = '/etc/icinga2/features-available',
