@@ -45,6 +45,7 @@ define icinga2::object::service (
   $target_file_mode        = $::icinga2::config_mode,
   $refresh_icinga2_service = true,
   $zone                    = undef,
+  $custom_append           = [],
 ) {
 
   validate_string($object_servicename)
